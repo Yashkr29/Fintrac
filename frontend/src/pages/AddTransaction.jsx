@@ -52,17 +52,19 @@ const AddTransaction = () => {
         ...formData,
         amount: parseFloat(formData.amount),
         categoryId: formData.categoryId || null,
+        paymentType: formData.type === 'INCOME' ? 'PERSONAL' : formData.paymentType,
+        merchantName: formData.type === 'INCOME' ? null : formData.merchantName,
       };
-
-      if (formData.type === 'INCOME') {
-        delete payload.merchantName;
-        delete payload.paymentType;
-      }
 
       await transactionService.create(payload);
       navigate('/transactions');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create transaction');
+      if (err.response?.data?.errors) {
+        const validationErrors = Object.values(err.response.data.errors).join(', ');
+        setError(validationErrors);
+      } else {
+        setError(err.response?.data?.message || 'Failed to create transaction');
+      }
     } finally {
       setLoading(false);
     }
