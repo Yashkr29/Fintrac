@@ -1,14 +1,15 @@
-# Stage 1: Build
-FROM maven:3.9.6-eclipse-temurin-17 AS build
+# Build stage
+FROM maven:3.8.4-openjdk-17-slim AS build
 WORKDIR /app
 COPY pom.xml .
+# Download dependencies to cache them
 RUN mvn dependency:go-offline -B
 COPY src ./src
-RUN mvn clean package -DskipTests
+RUN mvn package -DskipTests
 
-# Stage 2: Run
-FROM eclipse-temurin:17-jre-alpine
+# Run stage
+FROM openjdk:17-jdk-slim
 WORKDIR /app
-COPY --from=build /app/target/fintrac-backend-1.0.0.jar app.jar
+COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
