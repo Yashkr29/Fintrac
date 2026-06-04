@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.fintrac.service.AlertServiceTest
--------------------------------------------------------------------------------
-Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.573 s -- in com.fintrac.service.AlertServiceTest
