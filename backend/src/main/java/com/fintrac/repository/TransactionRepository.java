@@ -10,9 +10,12 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
+    Optional<Transaction> findByIdAndUserId(Long id, Long userId);
+
     List<Transaction> findByUserIdOrderByDateDesc(Long userId);
 
     List<Transaction> findByUserIdAndDateBetweenOrderByDateDesc(

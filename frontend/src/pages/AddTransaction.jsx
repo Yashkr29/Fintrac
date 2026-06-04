@@ -8,7 +8,9 @@ const AddTransaction = () => {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [error, setError] = useState('');
+  const [categoryError, setCategoryError] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     amount: '',
@@ -18,6 +20,7 @@ const AddTransaction = () => {
     merchantName: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     description: '',
+    isEmergency: false,
   });
 
   useEffect(() => {
@@ -29,17 +32,22 @@ const AddTransaction = () => {
   }, [formData.type]);
 
   const fetchCategories = async () => {
+    setCategoriesLoading(true);
+    setCategoryError('');
     try {
       const response = await categoryService.getByType(formData.type);
       setCategories(response.data);
     } catch (err) {
-      console.error('Failed to load categories');
+      setCategories([]);
+      setCategoryError('Failed to load categories');
+    } finally {
+      setCategoriesLoading(false);
     }
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleSubmit = async (e) => {
@@ -52,17 +60,20 @@ const AddTransaction = () => {
         ...formData,
         amount: parseFloat(formData.amount),
         categoryId: formData.categoryId || null,
+        paymentType: formData.type === 'INCOME' ? 'PERSONAL' : formData.paymentType,
+        merchantName: formData.type === 'INCOME' ? null : formData.merchantName,
+        isEmergency: formData.type === 'EXPENSE' && formData.isEmergency,
       };
-
-      if (formData.type === 'INCOME') {
-        delete payload.merchantName;
-        delete payload.paymentType;
-      }
 
       await transactionService.create(payload);
       navigate('/transactions');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create transaction');
+      if (err.response?.data?.errors) {
+        const validationErrors = Object.values(err.response.data.errors).join(', ');
+        setError(validationErrors);
+      } else {
+        setError(err.response?.data?.message || 'Failed to create transaction');
+      }
     } finally {
       setLoading(false);
     }
@@ -163,13 +174,15 @@ const AddTransaction = () => {
                 name="categoryId"
                 value={formData.categoryId}
                 onChange={handleChange}
+                disabled={categoriesLoading}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
-                <option value="">Select category</option>
+                <option value="">{categoriesLoading ? 'Loading categories...' : 'Select category'}</option>
                 {categories.map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
+              {categoryError && <p className="mt-1 text-xs text-red-600">{categoryError}</p>}
             </div>
 
             <div>
@@ -234,6 +247,22 @@ const AddTransaction = () => {
                   />
                 </div>
               )}
+
+              <label className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                <input
+                  type="checkbox"
+                  name="isEmergency"
+                  checked={formData.isEmergency}
+                  onChange={handleChange}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-yellow-900">Emergency expense</span>
+                  <span className="block text-xs text-yellow-700">
+                    Adds this amount to emergency spending and adapts the monthly budget.
+                  </span>
+                </span>
+              </label>
             </>
           )}
 

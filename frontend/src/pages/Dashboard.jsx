@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardService, alertService } from '../services/api';
-import { AlertProvider, useAlert } from '../context/AlertContext';
+import { dashboardService } from '../services/api';
+import { useAlert } from '../context/AlertContext';
 import {
   PieChart, Pie, Cell, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -72,9 +72,26 @@ const DashboardContent = () => {
   const getBudgetStatusColor = (status) => {
     switch (status) {
       case 'EXCEEDED': return 'text-red-600 bg-red-50';
+      case 'CRITICAL': return 'text-red-600 bg-red-50';
       case 'WARNING': return 'text-yellow-600 bg-yellow-50';
       case 'GOOD': return 'text-green-600 bg-green-50';
+      case 'NORMAL': return 'text-green-600 bg-green-50';
       default: return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  const getBudgetStatusLabel = (status) => {
+    switch (status) {
+      case 'EXCEEDED':
+      case 'CRITICAL':
+        return 'Over budget';
+      case 'WARNING':
+        return 'Near limit';
+      case 'GOOD':
+      case 'NORMAL':
+        return 'On track';
+      default:
+        return 'No budget';
     }
   };
 
@@ -99,8 +116,11 @@ const DashboardContent = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-1">Monthly cash flow, budget health, and spending signals.</p>
+        </div>
         <Link
           to="/add-transaction"
           className="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-md hover:bg-primary-700"
@@ -176,7 +196,7 @@ const DashboardContent = () => {
               ></div>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {dashboard?.budgetUsagePercentage?.toFixed(1) || 0}% used
+              {dashboard?.budgetUsagePercentage?.toFixed(1) || 0}% used · {getBudgetStatusLabel(dashboard?.budgetStatus)}
             </p>
           </div>
         </div>
@@ -301,10 +321,6 @@ const DashboardContent = () => {
   );
 };
 
-const Dashboard = () => (
-  <AlertProvider>
-    <DashboardContent />
-  </AlertProvider>
-);
+const Dashboard = () => <DashboardContent />;
 
 export default Dashboard;

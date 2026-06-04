@@ -30,4 +30,5 @@ public class BudgetDTO {
     private BigDecimal remainingBudget;
     private Double usagePercentage;
     private String status;
+    private Boolean isEmergency;
 }

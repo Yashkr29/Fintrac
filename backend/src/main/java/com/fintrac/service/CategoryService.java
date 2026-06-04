@@ -40,7 +40,8 @@ public class CategoryService {
 
     @Transactional(readOnly = true)
     public CategoryDTO getCategoryById(Long id) {
-        Category category = categoryRepository.findById(id)
+        Long userId = authService.getCurrentUserId();
+        Category category = categoryRepository.findAccessibleById(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id));
         return toDTO(category);
     }
@@ -64,7 +65,8 @@ public class CategoryService {
 
     @Transactional
     public CategoryDTO updateCategory(Long id, CategoryDTO categoryDTO) {
-        Category category = categoryRepository.findById(id)
+        Long userId = authService.getCurrentUserId();
+        Category category = categoryRepository.findOwnedById(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id));
 
         if (category.getIsDefault() != null && category.getIsDefault()) {
@@ -81,7 +83,8 @@ public class CategoryService {
 
     @Transactional
     public void deleteCategory(Long id) {
-        Category category = categoryRepository.findById(id)
+        Long userId = authService.getCurrentUserId();
+        Category category = categoryRepository.findOwnedById(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id));
 
         if (category.getIsDefault() != null && category.getIsDefault()) {

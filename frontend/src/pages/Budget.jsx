@@ -16,24 +16,23 @@ const Budget = () => {
   });
 
   useEffect(() => {
-    fetchBudget();
-  }, []);
+    fetchBudget(formData.month);
+  }, [formData.month]);
 
-  const fetchBudget = async () => {
+  const fetchBudget = async (month = formData.month) => {
+    setError('');
     try {
-      const response = await budgetService.getCurrent();
+      const response = await budgetService.getByMonth(month);
       setBudget(response.data);
-      if (response.data.initialBudget) {
-        setFormData(prev => ({
-          ...prev,
-          initialBudget: response.data.initialBudget.toString(),
-          month: response.data.month || format(new Date(), 'yyyy-MM'),
-        }));
-      }
-      const dailyResp = await budgetService.getDailyRemaining(formData.month);
+      setFormData(prev => ({
+        ...prev,
+        initialBudget: response.data.initialBudget ? response.data.initialBudget.toString() : '',
+        month: response.data.month || month,
+      }));
+      const dailyResp = await budgetService.getDailyRemaining(month);
       setDailyRemaining(dailyResp.data);
     } catch (err) {
-      console.error('Failed to load budget');
+      setError('Failed to load budget data');
     } finally {
       setLoading(false);
     }
@@ -57,7 +56,7 @@ const Budget = () => {
       };
       await budgetService.create(payload);
       setSuccess('Budget set successfully!');
-      fetchBudget();
+      fetchBudget(payload.month);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to set budget');
     } finally {
@@ -74,10 +73,12 @@ const Budget = () => {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'EXCEEDED':
+      case 'CRITICAL':
         return { bg: 'bg-red-100', text: 'text-red-700', label: 'Budget Exceeded' };
       case 'WARNING':
         return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Near Limit' };
       case 'GOOD':
+      case 'NORMAL':
         return { bg: 'bg-green-100', text: 'text-green-700', label: 'On Track' };
       default:
         return { bg: 'bg-gray-100', text: 'text-gray-700', label: 'No Budget' };

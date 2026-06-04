@@ -54,6 +54,37 @@ const Reports = () => {
 
   const formatCurrency = (amount) => `₹${parseFloat(amount || 0).toFixed(2)}`;
 
+  const getWeeklyChartData = () => {
+    if (!report?.weeklySummaries) return [];
+    return report.weeklySummaries.map((week) => ({
+      week: `Week ${week.weekNumber}`,
+      income: parseFloat(week.totalIncome || 0),
+      expense: parseFloat(week.totalExpense || 0),
+      savings: parseFloat(week.netSavings || 0),
+    }));
+  };
+
+  const handleDownloadCsv = () => {
+    if (!report) return;
+    const rows = [
+      ['Metric', 'Value'],
+      ['Month', report.month],
+      ['Total Income', report.totalIncome || 0],
+      ['Total Expense', report.totalExpense || 0],
+      ['Savings', report.savings || 0],
+      ['Budget Difference', report.budgetVsActual || 0],
+      ['Savings Rate', `${report.savingsRate || 0}%`],
+    ];
+    const csv = rows.map((row) => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `fintrac-report-${report.month}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -72,12 +103,16 @@ const Reports = () => {
 
   const categoryData = getCategoryChartData();
   const merchantData = getMerchantChartData();
+  const weeklyData = getWeeklyChartData();
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Monthly Report</h1>
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Monthly Report</h1>
+          <p className="text-sm text-gray-500 mt-1">Category mix, merchants, weekly movement, and budget variance.</p>
+        </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <input
             type="month"
             value={selectedMonth}
@@ -85,6 +120,14 @@ const Reports = () => {
             max={format(new Date(), 'yyyy-MM')}
             className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
+          <button
+            type="button"
+            onClick={handleDownloadCsv}
+            className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </button>
         </div>
       </div>
 
@@ -189,6 +232,24 @@ const Reports = () => {
           )}
         </div>
       </div>
+
+      {weeklyData.length > 0 && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Weekly Income vs Expense</h2>
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={weeklyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="week" />
+              <YAxis />
+              <Tooltip formatter={(value) => `₹${parseFloat(value).toFixed(2)}`} />
+              <Legend />
+              <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} />
+              <Line type="monotone" dataKey="expense" stroke="#EF4444" strokeWidth={2} />
+              <Line type="monotone" dataKey="savings" stroke="#3B82F6" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {report?.weeklySummaries?.length > 0 && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">

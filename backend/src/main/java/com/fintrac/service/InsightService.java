@@ -26,6 +26,10 @@ public class InsightService {
 
     @Transactional(readOnly = true)
     public List<InsightDTO> generateInsights(Long userId) {
+        if (userId == null) {
+            userId = authService.getCurrentUserId();
+        }
+
         List<InsightDTO> insights = new ArrayList<>();
 
         insights.addAll(analyzeCategorySpending(userId));
