@@ -5,10 +5,7 @@ Fintrac is a full-stack expense tracking and adaptive budgeting platform for man
 ## Live Links
 
 - GitHub: https://github.com/Yashkr29/Fintrac
-- Live demo: https://fintrac.vercel.app
-- Backend API: https://your-fintrac-api.onrender.com/api
 
-Update the demo/backend links after deploying.
 
 ## Demo Credentials
 
