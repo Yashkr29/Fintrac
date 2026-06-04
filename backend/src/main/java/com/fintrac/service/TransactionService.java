@@ -57,7 +57,8 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public TransactionDTO getTransactionById(Long id) {
-        Transaction transaction = transactionRepository.findById(id)
+        Long userId = authService.getCurrentUserId();
+        Transaction transaction = transactionRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", id));
         return toDTO(transaction);
     }
@@ -68,11 +69,11 @@ public class TransactionService {
 
         Category category = null;
         if (transactionDTO.getCategoryId() != null) {
-            category = categoryRepository.findById(transactionDTO.getCategoryId())
+            category = categoryRepository.findAccessibleById(transactionDTO.getCategoryId(), currentUser.getId())
                     .orElseThrow(() -> new ResourceNotFoundException("Category", "id", transactionDTO.getCategoryId()));
         }
 
-        boolean isEmergency = determineIfEmergency(transactionDTO);
+        boolean isEmergency = determineIfEmergency(transactionDTO, category);
 
         Transaction transaction = Transaction.builder()
                 .title(transactionDTO.getTitle())
@@ -100,19 +101,22 @@ public class TransactionService {
 
     @Transactional
     public TransactionDTO updateTransaction(Long id, TransactionDTO transactionDTO) {
-        Transaction transaction = transactionRepository.findById(id)
+        Long userId = authService.getCurrentUserId();
+        Transaction transaction = transactionRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", id));
 
         BigDecimal oldAmount = transaction.getAmount();
         boolean oldWasEmergency = transaction.getIsEmergency();
+        LocalDate oldDate = transaction.getDate();
+        TransactionType oldType = transaction.getType();
 
         Category category = null;
         if (transactionDTO.getCategoryId() != null) {
-            category = categoryRepository.findById(transactionDTO.getCategoryId())
+            category = categoryRepository.findAccessibleById(transactionDTO.getCategoryId(), userId)
                     .orElseThrow(() -> new ResourceNotFoundException("Category", "id", transactionDTO.getCategoryId()));
         }
 
-        boolean newIsEmergency = determineIfEmergency(transactionDTO);
+        boolean newIsEmergency = determineIfEmergency(transactionDTO, category);
 
         transaction.setTitle(transactionDTO.getTitle());
         transaction.setAmount(transactionDTO.getAmount());
@@ -126,16 +130,13 @@ public class TransactionService {
 
         Transaction updated = transactionRepository.save(transaction);
 
+        if (oldType == TransactionType.EXPENSE) {
+            budgetService.recalculateBudgetOnDelete(userId, oldDate, oldAmount, oldWasEmergency);
+        }
+
         if (transactionDTO.getType() == TransactionType.EXPENSE) {
-            budgetService.recalculateBudgetSpending(
-                    authService.getCurrentUserId(),
-                    transaction.getDate(),
-                    oldAmount,
-                    oldWasEmergency,
-                    transactionDTO.getAmount(),
-                    newIsEmergency
-            );
-            alertService.checkBudgetAlerts(authService.getCurrentUserId());
+            budgetService.updateBudgetSpending(userId, transactionDTO.getDate(), transactionDTO.getAmount(), newIsEmergency);
+            alertService.checkBudgetAlerts(userId);
         }
 
         return toDTO(updated);
@@ -143,12 +144,13 @@ public class TransactionService {
 
     @Transactional
     public void deleteTransaction(Long id) {
-        Transaction transaction = transactionRepository.findById(id)
+        Long userId = authService.getCurrentUserId();
+        Transaction transaction = transactionRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", id));
 
         if (transaction.getType() == TransactionType.EXPENSE) {
             budgetService.recalculateBudgetOnDelete(
-                    authService.getCurrentUserId(),
+                    userId,
                     transaction.getDate(),
                     transaction.getAmount(),
                     transaction.getIsEmergency()
@@ -182,8 +184,12 @@ public class TransactionService {
                 .collect(Collectors.toList());
     }
 
-    private boolean determineIfEmergency(TransactionDTO dto) {
+    private boolean determineIfEmergency(TransactionDTO dto, Category category) {
         if (dto.getIsEmergency() != null && dto.getIsEmergency()) {
+            return true;
+        }
+        if (category != null && category.getName() != null
+                && category.getName().toLowerCase().contains("emergency")) {
             return true;
         }
         if (dto.getCategoryName() != null && dto.getCategoryName().toLowerCase().contains("emergency")) {

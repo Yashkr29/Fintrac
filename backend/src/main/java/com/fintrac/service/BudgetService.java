@@ -3,9 +3,11 @@ package com.fintrac.service;
 import com.fintrac.dto.BudgetDTO;
 import com.fintrac.exception.ResourceNotFoundException;
 import com.fintrac.model.Budget;
+import com.fintrac.model.Transaction;
 import com.fintrac.model.TransactionType;
 import com.fintrac.model.User;
 import com.fintrac.repository.BudgetRepository;
+import com.fintrac.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,7 @@ import java.time.temporal.ChronoUnit;
 public class BudgetService {
 
     private final BudgetRepository budgetRepository;
+    private final TransactionRepository transactionRepository;
     private final AuthService authService;
 
     private static final double WARNING_THRESHOLD = 0.80;
@@ -59,10 +62,8 @@ public class BudgetService {
                         .month(budgetDTO.getMonth())
                         .build());
 
-        if (budget.getInitialBudget() == null || budget.getInitialBudget().compareTo(BigDecimal.ZERO) == 0) {
-            budget.setInitialBudget(budgetDTO.getInitialBudget());
-            budget.setAdjustedBudget(budgetDTO.getInitialBudget());
-        }
+        budget.setInitialBudget(budgetDTO.getInitialBudget());
+        recalculateBudgetTotals(userId, budget);
 
         Budget saved = budgetRepository.save(budget);
         return toDTO(saved);
@@ -200,12 +201,30 @@ public class BudgetService {
                 .doubleValue();
 
         if (usagePercentage >= CRITICAL_THRESHOLD) {
-            return "CRITICAL";
+            return "EXCEEDED";
         } else if (usagePercentage >= WARNING_THRESHOLD) {
             return "WARNING";
         } else {
-            return "NORMAL";
+            return "GOOD";
         }
+    }
+
+    private void recalculateBudgetTotals(Long userId, Budget budget) {
+        YearMonth yearMonth = YearMonth.parse(budget.getMonth());
+        LocalDate startDate = yearMonth.atDay(1);
+        LocalDate endDate = yearMonth.atEndOfMonth();
+
+        BigDecimal totalSpent = transactionRepository.sumAmountByUserIdAndTypeAndDateBetween(
+                userId, TransactionType.EXPENSE, startDate, endDate);
+
+        BigDecimal emergencySpent = transactionRepository.findEmergencyExpenses(userId, startDate, endDate)
+                .stream()
+                .map(Transaction::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        budget.setTotalSpent(totalSpent != null ? totalSpent : BigDecimal.ZERO);
+        budget.setEmergencySpent(emergencySpent);
+        budget.setAdjustedBudget(budget.getInitialBudget().add(emergencySpent));
     }
 
     private BudgetDTO toDTO(Budget budget) {
@@ -221,11 +240,11 @@ public class BudgetService {
                     .doubleValue() * 100;
 
             if (usagePercentage >= 100) {
-                status = "CRITICAL";
+                status = "EXCEEDED";
             } else if (usagePercentage >= 80) {
                 status = "WARNING";
             } else {
-                status = "NORMAL";
+                status = "GOOD";
             }
         }
 
@@ -239,6 +258,8 @@ public class BudgetService {
                 .remainingBudget(remaining)
                 .usagePercentage(usagePercentage)
                 .status(status)
+                .isEmergency(budget != null && budget.getEmergencySpent() != null
+                        && budget.getEmergencySpent().compareTo(BigDecimal.ZERO) > 0)
                 .build();
     }
 }

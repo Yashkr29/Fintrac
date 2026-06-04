@@ -98,7 +98,7 @@ class TransactionServiceTest {
                 .build();
 
         when(authService.getCurrentUser()).thenReturn(testUser);
-        when(categoryRepository.findById(1L)).thenReturn(Optional.of(testCategory));
+        when(categoryRepository.findAccessibleById(1L, 1L)).thenReturn(Optional.of(testCategory));
         when(transactionRepository.save(any(Transaction.class))).thenReturn(testTransaction);
 
         TransactionDTO result = transactionService.createTransaction(inputDTO);
@@ -112,7 +112,8 @@ class TransactionServiceTest {
 
     @Test
     void getTransactionById_ReturnsTransaction_WhenExists() {
-        when(transactionRepository.findById(1L)).thenReturn(Optional.of(testTransaction));
+        when(authService.getCurrentUserId()).thenReturn(1L);
+        when(transactionRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(testTransaction));
 
         TransactionDTO result = transactionService.getTransactionById(1L);
 
@@ -123,7 +124,8 @@ class TransactionServiceTest {
 
     @Test
     void getTransactionById_ThrowsException_WhenNotFound() {
-        when(transactionRepository.findById(999L)).thenReturn(Optional.empty());
+        when(authService.getCurrentUserId()).thenReturn(1L);
+        when(transactionRepository.findByIdAndUserId(999L, 1L)).thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class, () -> transactionService.getTransactionById(999L));
     }
@@ -173,7 +175,7 @@ class TransactionServiceTest {
     @Test
     void deleteTransaction_RestoresBudget() {
         when(authService.getCurrentUserId()).thenReturn(1L);
-        when(transactionRepository.findById(1L)).thenReturn(Optional.of(testTransaction));
+        when(transactionRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(testTransaction));
         doNothing().when(transactionRepository).delete(testTransaction);
 
         transactionService.deleteTransaction(1L);

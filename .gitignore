@@ -24,6 +24,10 @@ frontend/yarn-debug.log*
 frontend/yarn-error.log*
 frontend/.vite/
 
+# Backend environment
+backend/.env
+backend/.env.local
+
 # IDEs
 .idea/
 *.iml
